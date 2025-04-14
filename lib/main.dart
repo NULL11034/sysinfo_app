@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
+import 'dart:async';
+import 'package:flutter/services.dart';
 
 void main() => runApp(const MyApp());
 
@@ -10,10 +12,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Device Info App',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      title: 'System Info Viewer',
+      theme: ThemeData.dark(),
       home: const DeviceInfoScreen(),
     );
   }
@@ -29,6 +29,8 @@ class DeviceInfoScreen extends StatefulWidget {
 class _DeviceInfoScreenState extends State<DeviceInfoScreen> {
   late Future<String> _deviceInfoFuture;
 
+  static const platform = MethodChannel('com.null11034.device/root');
+
   @override
   void initState() {
     super.initState();
@@ -38,16 +40,42 @@ class _DeviceInfoScreenState extends State<DeviceInfoScreen> {
   Future<String> loadDeviceInfo() async {
     final deviceInfoPlugin = DeviceInfoPlugin();
 
-    if (Platform.isIOS) {
-      final iosInfo = await deviceInfoPlugin.iosInfo;
-      return '''
-Device: ${iosInfo.name}
-Model: ${iosInfo.utsname.machine}
-System: ${iosInfo.systemName} ${iosInfo.systemVersion}
-Physical Device: ${iosInfo.isPhysicalDevice}
+    try {
+      if (Platform.isIOS) {
+        final ios = await deviceInfoPlugin.iosInfo;
+        return '''
+📱 Device: ${ios.name}
+🧬 Model: ${ios.utsname.machine}
+🛠️ System: ${ios.systemName} ${ios.systemVersion}
+🔒 Physical Device: ${ios.isPhysicalDevice}
 ''';
-    } else {
-      return 'This app is only for iOS devices.';
+      } else if (Platform.isAndroid) {
+        final android = await deviceInfoPlugin.androidInfo;
+        final isRooted = await checkRootStatus();
+        return '''
+🏭 Manufacturer: ${android.manufacturer}
+📱 Model: ${android.model}
+🛠️ Android Version: ${android.version.release} (SDK ${android.version.sdkInt})
+🔒 Is Physical Device: ${android.isPhysicalDevice}
+📡 Supported ABIs: ${android.supportedAbis.join(', ')}
+🧩 Root Status: ${isRooted ? 'Rooted' : 'Not Rooted'}
+''';
+      } else {
+        return '❌ Unsupported platform';
+      }
+    } catch (e) {
+      return '⚠️ Error loading device info: $e';
+    }
+  }
+
+  Future<bool> checkRootStatus() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final bool result = await platform.invokeMethod('isRooted');
+      return result;
+    } catch (e) {
+      debugPrint('Root check failed: $e');
+      return false;
     }
   }
 
@@ -61,7 +89,7 @@ Physical Device: ${iosInfo.isPhysicalDevice}
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.blueAccent, Colors.lightBlueAccent],
+            colors: [Colors.indigo, Colors.deepPurpleAccent],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -70,50 +98,43 @@ Physical Device: ${iosInfo.isPhysicalDevice}
           future: _deviceInfoFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
-            } else if (snapshot.hasError) {
-              return Center(
-                child: Text(
-                  "Error: ${snapshot.error}",
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              );
+              return const Center(child: CircularProgressIndicator());
             } else {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Card(
-                    elevation: 8,
+                    elevation: 12,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(20),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Center(
-                            child: Icon(Icons.phone_iphone, size: 50, color: Colors.blue),
-                          ),
-                          const SizedBox(height: 16),
-                          const Center(
-                            child: Text(
-                              "iOS Device Info",
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Center(
+                              child: Icon(Icons.devices, size: 50, color: Colors.deepPurple),
+                            ),
+                            const SizedBox(height: 16),
+                            const Center(
+                              child: Text(
+                                "System Info",
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            snapshot.data!,
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            Text(
+                              snapshot.data ?? 'No info available',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
