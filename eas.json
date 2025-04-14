@@ -4,11 +4,13 @@
   },
   "build": {
     "preview": {
-      "developmentClient": false,
-      "distribution": "internal",
       "ios": {
         "workflow": "generic",
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "scheme": "Runner",
+        "projectRootDirectory": "ios",
+        "buildCommand": "flutter build ios --no-codesign",
+        "artifacts": "build/ios/ipa"
       }
     }
   }
